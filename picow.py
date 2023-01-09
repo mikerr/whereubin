@@ -3,20 +3,23 @@
 # when in home wifi 
 
 import network, urequests
-import binascii,json, time
-import umail 
+import binascii,json,time
+import umail
+import os
+
 # https://github.com/shawwwn/uMail
 
 # Home wifi credentials
-ssid = ''
+homessid = ''
 password = ''
  
-GMAIL_USERNAME = '' 
+GMAIL_USERNAME = '@gmail.com' 
 GMAIL_PASSWORD = ''  
 
 # Google location API : https://developers.google.com/maps/documentation/geolocation/overview
-APIKEY  = "" #YOUR_API_KEY
-    
+APIKEY  = ""
+LOGFILE = "wifilist.txt"
+
 def wifi2macs (networks) :
     # convert networks to json list of mac addresses and signal strengths
     wifidata = ""
@@ -35,21 +38,30 @@ def wifi2macs (networks) :
 wlan = network.WLAN()
 wlan.active(True)
 
-wifis = []
+wifis = 0
 oldw1 = ""
-
 print ("scanning")
-while (len(wifis) < 2):
+while (wifis < 100):
     networks = wlan.scan()
     networks.sort(key=lambda x:x[3],reverse=True) # sorted on RSSI (3)
-    w1 = networks[0][0]
+    w1 = networks[0][1]
     if (w1 != oldw1): # only log when strongest wifi changes i.e. we moved away
-        wifis.append (wifi2macs(networks))
+        print (".", end='')
+        wifis += 1
+        jsonmacs = wifi2macs(networks)
+        file = open(LOGFILE, "a")
+        file.write(jsonmacs +"\n")
+        file.close()
     oldw1 = w1
     
+    ssid = networks[0][0].decode()
+    if (ssid == homessid and wifis > 2): break
+    time.delay(30)
+    
 # connect to our network
+print ("connecting to home wifi")
 wlan = network.WLAN(network.STA_IF)
-wlan.connect(ssid, password)
+wlan.connect(homessid, password)
 while wlan.isconnected() == False:
         print('Waiting for connection...')
         time.sleep(5)
@@ -57,9 +69,12 @@ while wlan.isconnected() == False:
 # geolocate each group of wifi ssids into lat/long
 # then use them as points on a google maps route
 
+print ("geolocating wifi points")
 gmap = "https://google.com/maps/dir/"
-for wifidata in wifis:
-    payload = '{"considerIp": "false",  "wifiAccessPoints": [ ' + wifidata +  ']}'
+
+f = open(LOGFILE)
+while (line := f.readline().rstrip()):       
+    payload = '{"considerIp": "false",  "wifiAccessPoints": [ ' + line +  ']}'
     headers = {'Content-Type':'application/json'}
     url = f"https://www.googleapis.com/geolocation/v1/geolocate?key={APIKEY}"
     response = urequests.post(url,data=payload,headers=headers)
@@ -67,10 +82,14 @@ for wifidata in wifis:
     locdata = json.loads(response.content.decode())
     print (locdata)
     gmap += str(locdata['location']['lat']) + ',' + str(locdata['location']['lng']) + '/'
+f.close()
 
+print (gmap)
+print("sending email map route")
 smtp = umail.SMTP('smtp.gmail.com', 587, username=GMAIL_USERNAME, password=GMAIL_PASSWORD)
 smtp.to(GMAIL_USERNAME)
-smtp.send("\n" + gmap)
+smtp.send("Subject: tracking map \n\n" + gmap)
 smtp.quit()
 
-print (gmap)    
+os.remove (LOGFILE)
+print ("done")
