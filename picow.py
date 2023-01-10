@@ -39,6 +39,9 @@ wlan = network.WLAN()
 wlan.active(True)
 
 wifis = 0
+if LOGFILE in os.listdir():
+        wifis = 2
+    
 oldw1 = ""
 print ("scanning")
 while (wifis < 100):
@@ -56,7 +59,7 @@ while (wifis < 100):
     
     ssid = networks[0][0].decode()
     if (ssid == homessid and wifis > 2): break
-    time.delay(30)
+    time.sleep(30)
     
 # connect to our network
 print ("connecting to home wifi")
@@ -81,7 +84,8 @@ while (line := f.readline().rstrip()):
     
     locdata = json.loads(response.content.decode())
     print (locdata)
-    gmap += str(locdata['location']['lat']) + ',' + str(locdata['location']['lng']) + '/'
+    if (not "error" in locdata):
+      gmap += str(locdata['location']['lat']) + ',' + str(locdata['location']['lng']) + '/'
 f.close()
 
 print (gmap)
