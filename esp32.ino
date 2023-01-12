@@ -95,32 +95,45 @@ void setup()
 }
 
 int wifis = 0;
+String locations[100];
+
 void loop()
 {
   String jsonlist,ssid;
+  static String lastwifi;
 
   // do a scan and log groups of wifi APs 
   int n = WiFi.scanNetworks();
   if (n > 2)  {
     // need 3 to geolocate
-    for (int i = 0; i < n; ++i) {
+    for (int i = 0; i < 3; ++i) {
       String macaddr = WiFi.BSSIDstr(i);
       int signal = WiFi.RSSI(i);
-      ssid = WiFi.SSID(i);
       jsonlist += "{\"macAddress\": \"" + macaddr + "\", \"signalStrength\": " + signal + "},"; 
       }
     jsonlist = jsonlist.substring(0,jsonlist.length() - 1); // remove trailing comma
- 
-    wifis++;
+    ssid = WiFi.SSID(0); // first is strongest signal
+
+    if (ssid != lastwifi) // only store if changed location (strongest wifi changes)
+      locations [wifis++] = jsonlist;
+    lastwifi =ssid;  
   }
-  // when on home wifi, upload the journey
-  // process wifi groups into lat/long with google api
-  if (wifis >1) {
-    String latlong = geolocate(jsonlist);
-    String gmap = "https://google.com/maps/dir/" + latlong; 
+  Serial.print(".");
+  // when back on home wifi, upload the journey
+  if (ssid == homessid && wifis > 3) {
+    String locs ="";
+    for (int i=0;i<wifis;i++) {      
+       // process wifi groups into lat/long with google api  
+      String latlong = geolocate(locations[i]);
+      if (latlong.length() > 5)
+         locs += latlong + "/"; 
+      }
+    String gmap = "https://google.com/maps/dir/" + locs; 
     Serial.println(gmap);
 
     sendmail("Tracking map",gmap);
+    wifis = 0;
+    for (int i=0;i<100;i++) locations[i] = "";
   }
   delay(30000);
 }
