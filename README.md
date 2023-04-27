@@ -1,10 +1,10 @@
 # whereubin
-Track location on picoW or esp32 using only WIFi 
+Track location on raspberry pi, picoW or esp32 using only WIFi 
 
 Requirements
 ============
 
-picoW or ESP32
+raspberry pi, picoW or ESP32
 
 Uses Google's Gelocation API
 You'll need to get an API key from
